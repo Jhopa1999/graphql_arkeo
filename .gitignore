@@ -13,3 +13,6 @@ packaged.yaml
 .DS_Store
 .idea/
 .vscode/
+
+# Documento de validacion (binario, no versionado)
+ARKEO_Fleet_Integracion_Seven_Phari_Tech_VALIDADO.pdf
