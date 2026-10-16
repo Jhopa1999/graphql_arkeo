@@ -1,0 +1,11 @@
+## Invoca la Lambda pasando el campo y los argumentos de la query.
+## El cliente decide qué subcampos recibir; AppSync proyecta la selección.
+{
+  "version": "2018-05-29",
+  "operation": "Invoke",
+  "payload": {
+    "field": "productos",
+    "arguments": $utils.toJson($context.arguments),
+    "identity": $utils.toJson($context.identity)
+  }
+}

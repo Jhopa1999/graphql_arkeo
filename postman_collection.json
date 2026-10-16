@@ -1,0 +1,223 @@
+﻿{
+  "info": {
+    "name": "ARKEO Fleet - GraphQL (AppSync)",
+    "_postman_id": "arkeo-fleet-graphql-collection",
+    "description": "API GraphQL del catalogo de productos del ERP Seven (AppSync + Lambda Python + SQL Server).\n\nVariables de la coleccion (ya cargadas con los valores reales del despliegue):\n- appsync_url: endpoint HTTP de AppSync\n- api_key: valor del header x-api-key\n\nTodas las requests son POST con Content-Type: application/json y x-api-key.\nCada request incluye tests automaticos (pestana 'Test Results').",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "appsync_url", "value": "https://xetmcig7xzdvzey5boopm5ivaq.appsync-api.us-east-2.amazonaws.com/graphql" },
+    { "key": "api_key", "value": "<TU_API_KEY>" }
+  ],
+  "item": [
+    {
+      "name": "01 - Paginado basico",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const j = pm.response.json();",
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "pm.test('sin errores GraphQL', () => pm.expect(j.errors, JSON.stringify(j.errors)).to.be.undefined);",
+              "pm.test('devuelve data y pagination', () => {",
+              "  pm.expect(j.data.productos).to.have.property('data');",
+              "  pm.expect(j.data.productos).to.have.property('pagination');",
+              "});",
+              "pm.test('page 1, sin pagina previa', () => {",
+              "  const p = j.data.productos.pagination;",
+              "  pm.expect(p.page).to.eql(1);",
+              "  pm.expect(p.hasPreviousPage).to.eql(false);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "x-api-key", "value": "{{api_key}}" }
+        ],
+        "url": { "raw": "{{appsync_url}}", "host": ["{{appsync_url}}"] },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"query\": \"query { productos(page: 1, pageSize: 100) { data { codigo_producto nombre_producto estado trabajo_repuesto } pagination { page pageSize totalRegistros totalPaginas hasNextPage hasPreviousPage } } }\"\n}"
+        },
+        "description": "Primera pagina, 100 registros. Equivale al ejemplo del requerimiento."
+      }
+    },
+    {
+      "name": "02 - Todos los campos (query con variables)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const j = pm.response.json();",
+              "pm.test('HTTP 200 sin errores', () => { pm.response.to.have.status(200); pm.expect(j.errors).to.be.undefined; });",
+              "pm.test('respeta pageSize', () => pm.expect(j.data.productos.data.length).to.be.at.most(50));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "x-api-key", "value": "{{api_key}}" }
+        ],
+        "url": { "raw": "{{appsync_url}}", "host": ["{{appsync_url}}"] },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"query\": \"query ($page:Int!, $size:Int!, $filter:ProductoFilter, $order:ProductoOrderBy) { productos(page:$page, pageSize:$size, filter:$filter, orderBy:$order) { data { codigo_producto nombre_producto codigo_tipo nombre_tipo estado codigo_sistema nombre_sistema codigo_subsistema nombre_subsistema fecha_creacion fecha_actualizacion codigo_unidad nombre_unidad trabajo_repuesto } pagination { page pageSize totalRegistros totalPaginas hasNextPage hasPreviousPage } } }\",\n  \"variables\": {\n    \"page\": 1,\n    \"size\": 50,\n    \"filter\": { \"estado\": \"ACTIVO\" },\n    \"order\": \"CODIGO_PRODUCTO_ASC\"\n  }\n}"
+        },
+        "description": "Trae todos los campos del tipo Producto usando variables GraphQL."
+      }
+    },
+    {
+      "name": "03 - Filtro estado ACTIVO",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const j = pm.response.json();",
+              "pm.test('HTTP 200 sin errores', () => { pm.response.to.have.status(200); pm.expect(j.errors).to.be.undefined; });",
+              "pm.test('solo registros ACTIVO', () => j.data.productos.data.forEach(r => pm.expect(r.estado).to.eql('ACTIVO')));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "x-api-key", "value": "{{api_key}}" }
+        ],
+        "url": { "raw": "{{appsync_url}}", "host": ["{{appsync_url}}"] },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"query\": \"query { productos(page: 1, pageSize: 20, filter: { estado: ACTIVO }) { data { codigo_producto nombre_producto estado } pagination { totalRegistros totalPaginas } } }\"\n}"
+        },
+        "description": "Filtra por estado ACTIVO (todos los registros devueltos deben ser ACTIVO)."
+      }
+    },
+    {
+      "name": "04 - Filtro TRABAJO + orden por nombre",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const j = pm.response.json();",
+              "pm.test('HTTP 200 sin errores', () => { pm.response.to.have.status(200); pm.expect(j.errors).to.be.undefined; });",
+              "pm.test('solo TRABAJO', () => j.data.productos.data.forEach(r => pm.expect(r.trabajo_repuesto).to.eql('TRABAJO')));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "x-api-key", "value": "{{api_key}}" }
+        ],
+        "url": { "raw": "{{appsync_url}}", "host": ["{{appsync_url}}"] },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"query\": \"query { productos(page: 1, pageSize: 20, filter: { trabajo_repuesto: TRABAJO }, orderBy: NOMBRE_PRODUCTO_ASC) { data { codigo_producto nombre_producto trabajo_repuesto } pagination { totalRegistros totalPaginas } } }\"\n}"
+        },
+        "description": "Filtra productos de tipo TRABAJO, ordenados por nombre ascendente."
+      }
+    },
+    {
+      "name": "05 - Busqueda por nombre (contains)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const j = pm.response.json();",
+              "pm.test('HTTP 200 sin errores', () => { pm.response.to.have.status(200); pm.expect(j.errors).to.be.undefined; });",
+              "pm.test('coincide el texto buscado', () => j.data.productos.data.forEach(r => pm.expect(r.nombre_producto.toUpperCase()).to.include('TURBO')));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "x-api-key", "value": "{{api_key}}" }
+        ],
+        "url": { "raw": "{{appsync_url}}", "host": ["{{appsync_url}}"] },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"query\": \"query { productos(page: 1, pageSize: 20, filter: { nombre_producto_contains: \\\"TURBO\\\" }) { data { codigo_producto nombre_producto } pagination { totalRegistros totalPaginas } } }\"\n}"
+        },
+        "description": "Busqueda parcial (LIKE) en nombre_producto."
+      }
+    },
+    {
+      "name": "06 - Seleccion minima de campos",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const j = pm.response.json();",
+              "pm.test('HTTP 200 sin errores', () => { pm.response.to.have.status(200); pm.expect(j.errors).to.be.undefined; });",
+              "pm.test('solo trae codigo_producto', () => { const r = j.data.productos.data[0]; pm.expect(Object.keys(r)).to.eql(['codigo_producto']); });"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "x-api-key", "value": "{{api_key}}" }
+        ],
+        "url": { "raw": "{{appsync_url}}", "host": ["{{appsync_url}}"] },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"query\": \"query { productos(page: 2, pageSize: 25) { data { codigo_producto } pagination { totalRegistros totalPaginas } } }\"\n}"
+        },
+        "description": "Consulta flexible: el cliente pide solo codigo_producto; AppSync proyecta solo ese campo."
+      }
+    },
+    {
+      "name": "07 - Error de auth (sin API key)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('rechaza sin API key (401)', () => pm.response.to.have.status(401));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "url": { "raw": "{{appsync_url}}", "host": ["{{appsync_url}}"] },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"query\": \"query { productos(page: 1, pageSize: 1) { pagination { totalRegistros } } }\"\n}"
+        },
+        "description": "Verifica que sin el header x-api-key AppSync rechaza la peticion (401 UnauthorizedException)."
+      }
+    }
+  ]
+}

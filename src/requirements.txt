@@ -1,0 +1,2 @@
+# Driver SQL Server TDS puro en Python (sin ODBC ni libs nativas): ideal para Lambda.
+python-tds==1.15.0

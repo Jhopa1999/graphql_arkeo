@@ -1,0 +1,18 @@
+version = 0.1
+
+[default.deploy.parameters]
+stack_name = "arkeo-fleet-graphql"
+region = "us-east-2"
+capabilities = "CAPABILITY_IAM"
+confirm_changeset = true
+resolve_s3 = true
+disable_rollback = true
+s3_prefix = "arkeo-fleet-graphql"
+parameter_overrides = "DbSecretName=\"seven-db-credentials\" LambdaSubnetIds=\"subnet-0fbaebb0a7171c1f0,subnet-01aadaa8cf1526d54\" LambdaSecurityGroupId=\"sg-006aea4d75d0b9d54\" DefaultPageSize=\"100\" MaxPageSize=\"1000\" AppSyncApiName=\"arkeo-fleet-graphql\""
+image_repositories = []
+
+[default.build.parameters]
+use_container = false
+
+[default.global.parameters]
+region = "us-east-2"

@@ -1,0 +1,5 @@
+## Propaga errores de la Lambda como errores GraphQL seguros y devuelve el resultado.
+#if($ctx.error)
+  $utils.error($ctx.error.message, $ctx.error.type)
+#end
+$utils.toJson($ctx.result)

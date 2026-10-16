@@ -1,0 +1,184 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  ARKEO Fleet - API GraphQL (AppSync) sobre el catálogo de productos del ERP
+  Seven (SQL Server), resuelta por una Lambda Python en VPC. Reutiliza VPC,
+  subnets, security group y secret existentes; no crea red nueva.
+
+# ------------------------------------------------------------------------------
+# Parámetros: apuntan a recursos AWS YA EXISTENTES (verificados en la cuenta).
+# No se duplica infraestructura de red ni de secretos.
+# ------------------------------------------------------------------------------
+Parameters:
+  DbSecretName:
+    Type: String
+    Default: seven-db-credentials
+    Description: Nombre del secret en Secrets Manager con las credenciales SQL Server.
+
+  LambdaSubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Default: "subnet-0fbaebb0a7171c1f0,subnet-01aadaa8cf1526d54"
+    Description: Subnets privadas (vigia-vpc) con ruta VPN hacia 10.125.18.0/24.
+
+  LambdaSecurityGroupId:
+    Type: AWS::EC2::SecurityGroup::Id
+    Default: sg-006aea4d75d0b9d54
+    Description: SG existente "seven-api-lambda-sg" (egress all) para acceso a SQL Server.
+
+  DefaultPageSize:
+    Type: Number
+    Default: 100
+    Description: Tamaño de página por defecto.
+
+  MaxPageSize:
+    Type: Number
+    Default: 1000
+    Description: Máximo de registros por página (límite técnico, no total).
+
+  AppSyncApiName:
+    Type: String
+    Default: arkeo-fleet-graphql
+
+Globals:
+  Function:
+    Timeout: 29
+    MemorySize: 256
+    Runtime: python3.12
+    Architectures:
+      - x86_64
+
+Resources:
+
+  # ----------------------------------------------------------------------------
+  # Lambda resolver: ejecuta las consultas parametrizadas contra SQL Server.
+  # ----------------------------------------------------------------------------
+  ProductosResolverFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${AppSyncApiName}-productos-resolver"
+      CodeUri: src/
+      Handler: handler.lambda_handler
+      Description: Resolver AppSync para el catálogo de productos Seven.
+      Environment:
+        Variables:
+          DB_SECRET_ID: !Ref DbSecretName
+          DEFAULT_PAGE_SIZE: !Ref DefaultPageSize
+          MAX_PAGE_SIZE: !Ref MaxPageSize
+          LOG_LEVEL: INFO
+      VpcConfig:
+        SecurityGroupIds:
+          - !Ref LambdaSecurityGroupId
+        SubnetIds: !Ref LambdaSubnetIds
+      Policies:
+        # Mínimo privilegio: solo leer ESTE secret.
+        - Statement:
+            - Sid: ReadSevenDbSecret
+              Effect: Allow
+              Action:
+                - secretsmanager:GetSecretValue
+              Resource:
+                - !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${DbSecretName}-*"
+        # ENIs para VPC (gestionado por la managed policy de Lambda VPC).
+        - VPCAccessPolicy: {}
+
+  ProductosResolverLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${AppSyncApiName}-productos-resolver"
+      RetentionInDays: 14
+
+  # ----------------------------------------------------------------------------
+  # AppSync GraphQL API (autenticación por API Key para pruebas/Postman).
+  # ----------------------------------------------------------------------------
+  GraphQLApi:
+    Type: AWS::AppSync::GraphQLApi
+    Properties:
+      Name: !Ref AppSyncApiName
+      AuthenticationType: API_KEY
+      XrayEnabled: false
+      LogConfig:
+        FieldLogLevel: ERROR
+        CloudWatchLogsRoleArn: !GetAtt AppSyncLogsRole.Arn
+
+  GraphQLApiKey:
+    Type: AWS::AppSync::ApiKey
+    Properties:
+      ApiId: !GetAtt GraphQLApi.ApiId
+      Description: API key para consumo (Postman / clientes de prueba).
+
+  GraphQLSchema:
+    Type: AWS::AppSync::GraphQLSchema
+    Properties:
+      ApiId: !GetAtt GraphQLApi.ApiId
+      DefinitionS3Location: schema.graphql
+
+  # Rol que permite a AppSync escribir logs en CloudWatch.
+  AppSyncLogsRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: appsync.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSAppSyncPushToCloudWatchLogs
+
+  # Rol que permite a AppSync invocar SOLO esta Lambda (mínimo privilegio).
+  AppSyncInvokeLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: appsync.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: InvokeProductosResolver
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: lambda:InvokeFunction
+                Resource: !GetAtt ProductosResolverFunction.Arn
+
+  # Data source: enlaza AppSync con la Lambda resolver.
+  LambdaDataSource:
+    Type: AWS::AppSync::DataSource
+    Properties:
+      ApiId: !GetAtt GraphQLApi.ApiId
+      Name: ProductosLambdaDataSource
+      Type: AWS_LAMBDA
+      ServiceRoleArn: !GetAtt AppSyncInvokeLambdaRole.Arn
+      LambdaConfig:
+        LambdaFunctionArn: !GetAtt ProductosResolverFunction.Arn
+
+  # Resolver del campo Query.productos con plantillas VTL.
+  ProductosResolver:
+    Type: AWS::AppSync::Resolver
+    DependsOn: GraphQLSchema
+    Properties:
+      ApiId: !GetAtt GraphQLApi.ApiId
+      TypeName: Query
+      FieldName: productos
+      DataSourceName: !GetAtt LambdaDataSource.Name
+      RequestMappingTemplateS3Location: resolvers/Query.productos.request.vtl
+      ResponseMappingTemplateS3Location: resolvers/Query.productos.response.vtl
+
+Outputs:
+  GraphQLApiId:
+    Description: ID de la API AppSync.
+    Value: !GetAtt GraphQLApi.ApiId
+  GraphQLApiUrl:
+    Description: Endpoint GraphQL (POST) para Postman/clientes.
+    Value: !GetAtt GraphQLApi.GraphQLUrl
+  GraphQLApiKey:
+    Description: API Key para el header x-api-key.
+    Value: !GetAtt GraphQLApiKey.ApiKey
+  ResolverFunctionArn:
+    Description: ARN de la Lambda resolver.
+    Value: !GetAtt ProductosResolverFunction.Arn

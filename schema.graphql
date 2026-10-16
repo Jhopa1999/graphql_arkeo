@@ -1,0 +1,92 @@
+#  ARKEO Fleet - Esquema GraphQL AppSync
+#  Expone el catálogo de productos del ERP Seven (SQL Server) con
+#  paginación real en base de datos y filtros dinámicos opcionales.
+
+schema {
+  query: Query
+}
+
+type Query {
+  """
+  Lista paginada de productos del ERP Seven.
+  Respeta las reglas de negocio originales del SELECT base
+  (EMP_CODI = 409, LEFT(PRO_CO01,1)=7, LEN(PRO_CO02)=5, LEN(PRO_CODI)>=10).
+  """
+  productos(
+    page: Int = 1
+    pageSize: Int = 100
+    filter: ProductoFilter
+    orderBy: ProductoOrderBy = CODIGO_PRODUCTO_ASC
+  ): ProductoConnection!
+}
+
+"""Producto del catálogo Seven (tablas IN_PRODU / IN_TIPRO / IN_UNIME)."""
+type Producto {
+  codigo_producto: String!
+  nombre_producto: String
+  codigo_tipo: String
+  nombre_tipo: String
+  estado: String
+  codigo_sistema: String
+  nombre_sistema: String
+  codigo_subsistema: String
+  nombre_subsistema: String
+  fecha_creacion: String
+  fecha_actualizacion: String
+  codigo_unidad: String
+  nombre_unidad: String
+  trabajo_repuesto: String
+}
+
+"""Metadatos de paginación calculados en SQL Server."""
+type PageInfo {
+  page: Int!
+  pageSize: Int!
+  totalRegistros: Int!
+  totalPaginas: Int!
+  hasNextPage: Boolean!
+  hasPreviousPage: Boolean!
+}
+
+"""Respuesta paginada de productos."""
+type ProductoConnection {
+  data: [Producto!]!
+  pagination: PageInfo!
+}
+
+"""
+Filtros dinámicos opcionales. Se aplican ADEMÁS de las condiciones
+originales del SELECT, nunca las reemplazan. Todos son opcionales.
+Los campos *_contains hacen coincidencia parcial (LIKE), el resto exacta.
+"""
+input ProductoFilter {
+  codigo_producto: String
+  codigo_producto_contains: String
+  nombre_producto_contains: String
+  codigo_tipo: String
+  estado: EstadoProducto
+  codigo_sistema: String
+  codigo_subsistema: String
+  codigo_unidad: String
+  trabajo_repuesto: TrabajoRepuesto
+}
+
+enum EstadoProducto {
+  ACTIVO
+  INACTIVO
+}
+
+enum TrabajoRepuesto {
+  TRABAJO
+  REPUESTO
+}
+
+"""Ordenamiento determinista. Siempre desempata por codigo_producto."""
+enum ProductoOrderBy {
+  CODIGO_PRODUCTO_ASC
+  CODIGO_PRODUCTO_DESC
+  NOMBRE_PRODUCTO_ASC
+  NOMBRE_PRODUCTO_DESC
+  FECHA_CREACION_ASC
+  FECHA_CREACION_DESC
+}
