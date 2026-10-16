@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Guía de Integración - API GraphQL ARKEO Fleet</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 2cm;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        h1 {
+            color: #2c3e50;
+            border-bottom: 3px solid #3498db;
+            padding-bottom: 10px;
+            margin-top: 40px;
+        }
+        
+        h2 {
+            color: #34495e;
+            margin-top: 30px;
+            border-bottom: 2px solid #ecf0f1;
+            padding-bottom: 5px;
+        }
+        
+        h3 {
+            color: #7f8c8d;
+            margin-top: 20px;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            background-color: #fff;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border: 1px solid #ddd;
+        }
+        
+        th {
+            background-color: #3498db;
+            color: white;
+            font-weight: bold;
+        }
+        
+        tr:nth-child(even) {
+            background-color: #f8f9fa;
+        }
+        
+        code {
+            background-color: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            color: #e74c3c;
+        }
+        
+        pre {
+            background-color: #2c3e50;
+            color: #ecf0f1;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+            margin: 15px 0;
+        }
+        
+        pre code {
+            background-color: transparent;
+            color: #ecf0f1;
+            padding: 0;
+        }
+        
+        blockquote {
+            border-left: 4px solid #3498db;
+            padding-left: 15px;
+            margin: 20px 0;
+            background-color: #ecf0f1;
+            padding: 10px 15px;
+            border-radius: 0 5px 5px 0;
+        }
+        
+        .warning {
+            background-color: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 10px 15px;
+            margin: 15px 0;
+            border-radius: 0 5px 5px 0;
+        }
+        
+        .info {
+            background-color: #d1ecf1;
+            border-left: 4px solid #17a2b8;
+            padding: 10px 15px;
+            margin: 15px 0;
+            border-radius: 0 5px 5px 0;
+        }
+        
+        .success {
+            background-color: #d4edda;
+            border-left: 4px solid #28a745;
+            padding: 10px 15px;
+            margin: 15px 0;
+            border-radius: 0 5px 5px 0;
+        }
+        
+        @media print {
+            body {
+                margin: 0;
+                padding: 0;
+            }
+            
+            pre {
+                page-break-inside: avoid;
+            }
+            
+            h1, h2, h3 {
+                page-break-after: avoid;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>Guía de Integración — API GraphQL ARKEO Fleet</h1>
+    <p><strong>Catálogo de productos del ERP Seven</strong></p>
+    <p>Guía para desarrolladores que van a <strong>consumir</strong> el API. Explica cómo conectarse, qué consultar, cómo paginar y filtrar, y cómo manejar errores. No requiere conocer la infraestructura detrás.</p>
+
+    <hr>
+
+    <h2>1. Lo mínimo para empezar</h2>
+    
+    <table>
+        <tr>
+            <th>Dato</th>
+            <th>Valor</th>
+        </tr>
+        <tr>
+            <td><strong>URL</strong></td>
+            <td><code>https://xetmcig7xzdvzey5boopm5ivaq.appsync-api.us-east-2.amazonaws.com/graphql</code></td>
+        </tr>
+        <tr>
+            <td><strong>Método</strong></td>
+            <td><code>POST</code></td>
+        </tr>
+        <tr>
+            <td><strong>Header 1</strong></td>
+            <td><code>Content-Type: application/json</code></td>
+        </tr>
+        <tr>
+            <td><strong>Header 2</strong></td>
+            <td><code>x-api-key: &lt;TU_API_KEY&gt;</code></td>
+        </tr>
+    </table>
+
+    <div class="info">
+        <p>Es una API <strong>GraphQL</strong>. Siempre se llama con <code>POST</code> y el cuerpo es un JSON con el campo <code>query</code> (y opcionalmente <code>variables</code>).</p>
+    </div>
+
+    <p><strong>Prueba rápida (una línea con cURL):</strong></p>
+    <pre><code>curl -s -X POST "https://xetmcig7xzdvzey5boopm5ivaq.appsync-api.us-east-2.amazonaws.com/graphql" \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: &lt;TU_API_KEY&gt;" \
+  -d '{"query":"query { productos(page:1, pageSize:5) { data { codigo_producto nombre_producto } pagination { totalRegistros } } }"}'</code></pre>
+
+    <h2>2. Operaciones disponibles</h2>
+    
+    <h3>2.1. productos (catálogo general)</h3>
+    <pre><code>productos(
+  page: Int = 1
+  pageSize: Int = 100
+  filter: ProductoFilter
+  orderBy: ProductoOrderBy = CODIGO_PRODUCTO_ASC
+): ProductoConnection!</code></pre>
+
+    <h3>2.2. productosInactivos (solo inactivos)</h3>
+    <pre><code>productosInactivos(
+  page: Int = 1
+  pageSize: Int = 100
+  filter: ProductoInactivoFilter
+  orderBy: ProductoOrderBy = CODIGO_PRODUCTO_ASC
+): ProductoConnection!</code></pre>
+
+    <h3>2.3. sistemasSubsistemas (grupos únicos)</h3>
+    <pre><code>sistemasSubsistemas(
+  orderBy: SistemaOrderBy = CODIGO_SISTEMA_ASC
+): [SistemaSubsistema!]!</code></pre>
+
+    <div class="info">
+        <p>Cada operación devuelve un objeto con dos partes:</p>
+        <ul>
+            <li><code>data</code>: la lista de productos/sistemas de la página pedida.</li>
+            <li><code>pagination</code>: los metadatos para saber cuántas páginas hay (solo en productos y productosInactivos).</li>
+        </ul>
+        <p>En GraphQL <strong>tú eliges qué campos recibir</strong>. Pide solo lo que necesitas.</p>
+    </div>
+
+    <h2>3. Campos de un producto</h2>
+    
+    <table>
+        <tr>
+            <th>Campo</th>
+            <th>Tipo</th>
+            <th>Descripción</th>
+        </tr>
+        <tr>
+            <td><code>codigo_producto</code></td>
+            <td>String</td>
+            <td>Código único del producto</td>
+        </tr>
+        <tr>
+            <td><code>nombre_producto</code></td>
+            <td>String</td>
+            <td>Nombre/descripción</td>
+        </tr>
+        <tr>
+            <td><code>codigo_tipo</code></td>
+            <td>String</td>
+            <td>Código del tipo</td>
+        </tr>
+        <tr>
+            <td><code>nombre_tipo</code></td>
+            <td>String</td>
+            <td>Nombre del tipo</td>
+        </tr>
+        <tr>
+            <td><code>estado</code></td>
+            <td>String</td>
+            <td><code>ACTIVO</code> o <code>INACTIVO</code></td>
+        </tr>
+        <tr>
+            <td><code>codigo_sistema</code></td>
+            <td>String</td>
+            <td>Código de sistema (grupo)</td>
+        </tr>
+        <tr>
+            <td><code>nombre_sistema</code></td>
+            <td>String</td>
+            <td>Nombre de sistema</td>
+        </tr>
+        <tr>
+            <td><code>codigo_subsistema</code></td>
+            <td>String</td>
+            <td>Código de subsistema (subgrupo)</td>
+        </tr>
+        <tr>
+            <td><code>nombre_subsistema</code></td>
+            <td>String</td>
+            <td>Nombre de subsistema</td>
+        </tr>
+        <tr>
+            <td><code>fecha_creacion</code></td>
+            <td>String</td>
+            <td>Fecha ISO 8601</td>
+        </tr>
+        <tr>
+            <td><code>fecha_actualizacion</code></td>
+            <td>String</td>
+            <td>Fecha ISO 8601</td>
+        </tr>
+        <tr>
+            <td><code>codigo_unidad</code></td>
+            <td>String</td>
+            <td>Código de unidad de medida</td>
+        </tr>
+        <tr>
+            <td><code>nombre_unidad</code></td>
+            <td>String</td>
+            <td>Nombre de unidad (ej. UNIDAD)</td>
+        </tr>
+        <tr>
+            <td><code>trabajo_repuesto</code></td>
+            <td>String</td>
+            <td><code>TRABAJO</code> o <code>REPUESTO</code></td>
+        </tr>
+    </table>
+
+    <h2>4. Paginación</h2>
+    
+    <ul>
+        <li><code>page</code> empieza en <strong>1</strong>.</li>
+        <li><code>pageSize</code> por defecto <strong>100</strong>, máximo <strong>1000</strong>.</li>
+        <li>Para recorrer todo: empieza en <code>page: 1</code> y sigue incrementando mientras <code>pagination.hasNextPage</code> sea <code>true</code>.</li>
+    </ul>
+
+    <h3>Ejemplo:</h3>
+    <pre><code>query {
+  productos(page: 1, pageSize: 50) {
+    data { codigo_producto }
+    pagination { page totalPaginas hasNextPage }
+  }
+}</code></pre>
+
+    <div class="warning">
+        <p><strong>Nota:</strong> La query <code>sistemasSubsistemas</code> NO tiene paginación. Retorna todas las combinaciones únicas (43 items).</p>
+    </div>
+
+    <h2>5. Filtros</h2>
+    
+    <p>Todos opcionales. Si envías varios, se combinan con <strong>AND</strong>.</p>
+
+    <table>
+        <tr>
+            <th>Filtro</th>
+            <th>Tipo</th>
+            <th>Comportamiento</th>
+        </tr>
+        <tr>
+            <td><code>codigo_producto</code></td>
+            <td>String</td>
+            <td>Coincidencia <strong>exacta</strong></td>
+        </tr>
+        <tr>
+            <td><code>codigo_producto_contains</code></td>
+            <td>String</td>
+            <td>Coincidencia <strong>parcial</strong></td>
+        </tr>
+        <tr>
+            <td><code>nombre_producto_contains</code></td>
+            <td>String</td>
+            <td>Coincidencia <strong>parcial</strong></td>
+        </tr>
+        <tr>
+            <td><code>codigo_tipo</code></td>
+            <td>String</td>
+            <td>Exacta</td>
+        </tr>
+        <tr>
+            <td><code>estado</code></td>
+            <td>ACTIVO / INACTIVO</td>
+            <td>Exacta (solo en productos)</td>
+        </tr>
+        <tr>
+            <td><code>codigo_sistema</code></td>
+            <td>String</td>
+            <td>Exacta</td>
+        </tr>
+        <tr>
+            <td><code>codigo_subsistema</code></td>
+            <td>String</td>
+            <td>Exacta</td>
+        </tr>
+        <tr>
+            <td><code>codigo_unidad</code></td>
+            <td>String</td>
+            <td>Exacta</td>
+        </tr>
+        <tr>
+            <td><code>trabajo_repuesto</code></td>
+            <td>TRABAJO / REPUESTO</td>
+            <td>Exacta</td>
+        </tr>
+    </table>
+
+    <h3>Ejemplo:</h3>
+    <pre><code>query {
+  productos(
+    page: 1
+    pageSize: 20
+    filter: { 
+      estado: ACTIVO
+      trabajo_repuesto: REPUESTO
+      nombre_producto_contains: "ACEITE"
+    }
+  ) {
+    data { codigo_producto nombre_producto }
+    pagination { totalRegistros }
+  }
+}</code></pre>
+
+    <h2>6. Usar variables (recomendado)</h2>
+    
+    <p>En lugar de concatenar valores en el texto de la query, usa variables. Es más seguro y legible:</p>
+
+    <h3>Query:</h3>
+    <pre><code>query ListarProductos($page: Int!, $size: Int!, $filter: ProductoFilter) {
+  productos(page: $page, pageSize: $size, filter: $filter) {
+    data {
+      codigo_producto
+      nombre_producto
+      estado
+    }
+    pagination {
+      page
+      totalRegistros
+      totalPaginas
+      hasNextPage
+    }
+  }
+}</code></pre>
+
+    <h3>Variables (JSON):</h3>
+    <pre><code>{
+  "page": 1,
+  "size": 50,
+  "filter": { "estado": "ACTIVO" }
+}</code></pre>
+
+    <h2>7. Formato de respuesta</h2>
+    
+    <pre><code>{
+  "data": {
+    "productos": {
+      "data": [
+        {
+          "codigo_producto": "70M0101001",
+          "nombre_producto": "AA005- D/M TURBO MOTOR CAMBIAR EMPAQUES",
+          "estado": "ACTIVO"
+        }
+      ],
+      "pagination": {
+        "page": 1,
+        "pageSize": 100,
+        "totalRegistros": 10126,
+        "totalPaginas": 102,
+        "hasNextPage": true
+      }
+    }
+  }
+}</code></pre>
+
+    <h2>8. Manejo de errores</h2>
+    
+    <div class="warning">
+        <p><strong>Importante:</strong> GraphQL <strong>siempre responde HTTP 200</strong> cuando la petición llega bien, incluso si hay un error de negocio. El error viene en un arreglo <code>errors</code>.</p>
+    </div>
+
+    <pre><code>{
+  "data": null,
+  "errors": [
+    { 
+      "message": "Error interno al consultar el catálogo de productos.",
+      "errorType": "Lambda:Unhandled"
+    }
+  ]
+}</code></pre>
+
+    <div class="success">
+        <p><strong>Regla práctica para el cliente:</strong></p>
+        <ol>
+            <li>Si la respuesta trae <code>errors</code> → tratarlo como fallo.</li>
+            <li>Usar <code>data.productos</code> solo si <code>errors</code> no existe.</li>
+        </ol>
+    </div>
+
+    <table>
+        <tr>
+            <th>HTTP</th>
+            <th>Causa</th>
+            <th>Acción</th>
+        </tr>
+        <tr>
+            <td>200</td>
+            <td>OK (revisar <code>errors</code> igual)</td>
+            <td>Normal</td>
+        </tr>
+        <tr>
+            <td>401</td>
+            <td>Falta o es inválido el <code>x-api-key</code></td>
+            <td>Revisar el header</td>
+        </tr>
+        <tr>
+            <td>400</td>
+            <td>Query mal formada</td>
+            <td>Revisar sintaxis GraphQL</td>
+        </tr>
+    </table>
+
+    <h2>9. Ejemplos de código</h2>
+    
+    <h3>JavaScript / Node.js (fetch)</h3>
+    <pre><code>const URL = "https://xetmcig7xzdvzey5boopm5ivaq.appsync-api.us-east-2.amazonaws.com/graphql";
+const API_KEY = "&lt;TU_API_KEY&gt;";
+
+const query = `
+  query ($page: Int!, $size: Int!, $filter: ProductoFilter) {
+    productos(page: $page, pageSize: $size, filter: $filter) {
+      data { codigo_producto nombre_producto estado }
+      pagination { totalRegistros totalPaginas hasNextPage }
+    }
+  }`;
+
+async function listarProductos() {
+  const resp = await fetch(URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-api-key": API_KEY },
+    body: JSON.stringify({
+      query,
+      variables: { page: 1, size: 50, filter: { estado: "ACTIVO" } },
+    }),
+  });
+  const json = await resp.json();
+  if (json.errors) throw new Error(json.errors[0].message);
+  return json.data.productos;
+}
+
+listarProductos().then((r) => console.log(r.pagination, r.data.length));</code></pre>
+
+    <h3>Python (requests)</h3>
+    <pre><code>import requests
+
+URL = "https://xetmcig7xzdvzey5boopm5ivaq.appsync-api.us-east-2.amazonaws.com/graphql"
+API_KEY = "&lt;TU_API_KEY&gt;"
+
+query = """
+query ($page: Int!, $size: Int!, $filter: ProductoFilter) {
+  productos(page: $page, pageSize: $size, filter: $filter) {
+    data { codigo_producto nombre_producto estado }
+    pagination { totalRegistros totalPaginas hasNextPage }
+  }
+}
+"""
+
+resp = requests.post(
+    URL,
+    headers={"Content-Type": "application/json", "x-api-key": API_KEY},
+    json={"query": query, "variables": {"page": 1, "size": 50, "filter": {"estado": "ACTIVO"}}},
+    timeout=40,
+)
+payload = resp.json()
+if "errors" in payload:
+    raise RuntimeError(payload["errors"][0]["message"])
+
+productos = payload["data"]["productos"]
+print(productos["pagination"]["totalRegistros"], "registros")
+for p in productos["data"]:
+    print(p["codigo_producto"], p["nombre_producto"])</code></pre>
+
+    <h2>10. Nuevas funcionalidades</h2>
+    
+    <h3>10.1. Consultar productos inactivos</h3>
+    <pre><code>{
+  "query": "query { productosInactivos(page: 1, pageSize: 10) { data { codigo_producto nombre_producto estado fecha_actualizacion } pagination { totalRegistros } } }"
+}</code></pre>
+
+    <h3>10.2. Obtener sistemas y subsistemas únicos</h3>
+    <pre><code>{
+  "query": "query { sistemasSubsistemas { codigo_sistema nombre_sistema codigo_subsistema nombre_subsistema } }"
+}</code></pre>
+
+    <div class="success">
+        <p><strong>Beneficios de sistemasSubsistemas:</strong></p>
+        <ul>
+            <li>✅ Sin duplicados (SELECT DISTINCT)</li>
+            <li>✅ Sin paginación (retorna todo)</li>
+            <li>✅ Perfecto para poblar filtros en UI</li>
+            <li>✅ 43 combinaciones únicas disponibles</li>
+        </ul>
+    </div>
+
+    <h2>11. Preguntas frecuentes</h2>
+    
+    <div class="info">
+        <p><strong>¿Por qué GraphQL siempre devuelve 200 aunque falle?</strong><br>
+        Es el comportamiento estándar de GraphQL. Revisa siempre el campo <code>errors</code>.</p>
+    </div>
+
+    <div class="info">
+        <p><strong>¿Puedo pedir solo un campo?</strong><br>
+        Sí. Pide exactamente los campos que uses; la respuesta no incluirá el resto.</p>
+    </div>
+
+    <div class="info">
+        <p><strong>¿Hay límite de registros totales?</strong><br>
+        No. El límite es por página (<code>pageSize</code> máx 1000). Recorre todo paginando.</p>
+    </div>
+
+    <div class="info">
+        <p><strong>¿Cómo sé cuántas páginas hay?</strong><br>
+        En <code>pagination.totalPaginas</code>, o avanza mientras <code>hasNextPage</code> sea <code>true</code>.</p>
+    </div>
+
+    <div class="warning">
+        <p><strong>El <code>x-api-key</code> tiene vencimiento.</strong><br>
+        Sí, es una key de prueba. Si te da 401, solicita una key vigente al equipo que administra el API.</p>
+    </div>
+
+    <hr>
+    
+    <p style="text-align: center; color: #7f8c8d; margin-top: 40px;">
+        <strong>API GraphQL ARKEO Fleet - Catálogo de Productos</strong><br>
+        Versión 2.0 - Octubre 2026<br>
+        Región: us-east-2 (Ohio)
+    </p>
+</body>
+</html>
