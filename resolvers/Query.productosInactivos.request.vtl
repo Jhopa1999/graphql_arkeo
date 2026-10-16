@@ -1,0 +1,10 @@
+## Resolver VTL para Query.productosInactivos (Direct Lambda Resolver)
+## Pasa todos los argumentos GraphQL al handler Lambda (igual que productos)
+{
+  "version": "2018-05-29",
+  "operation": "Invoke",
+  "payload": {
+    "field": "productosInactivos",
+    "arguments": $util.toJson($context.arguments)
+  }
+}

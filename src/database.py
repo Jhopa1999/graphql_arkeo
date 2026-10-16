@@ -111,3 +111,16 @@ def run_paginated(
     # Si no hay registros, evitamos la segunda consulta.
     rows = fetch_page(page_sql, page_params) if total > 0 else []
     return total, rows
+
+
+def fetch_all(sql: str, params: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """Ejecuta una consulta sin paginación y devuelve todas las filas serializadas.
+    
+    Útil para consultas DISTINCT de catálogos (sistemas/subsistemas) que retornan
+    pocos registros únicos.
+    """
+    conn = _get_connection()
+    with conn.cursor() as cur:
+        cur.execute(sql, params)
+        rows = cur.fetchall()
+    return [_serialize_row(r) for r in rows]

@@ -169,6 +169,30 @@ Resources:
       RequestMappingTemplateS3Location: resolvers/Query.productos.request.vtl
       ResponseMappingTemplateS3Location: resolvers/Query.productos.response.vtl
 
+  # Resolver del campo Query.productosInactivos con plantillas VTL.
+  ProductosInactivosResolver:
+    Type: AWS::AppSync::Resolver
+    DependsOn: GraphQLSchema
+    Properties:
+      ApiId: !GetAtt GraphQLApi.ApiId
+      TypeName: Query
+      FieldName: productosInactivos
+      DataSourceName: !GetAtt LambdaDataSource.Name
+      RequestMappingTemplateS3Location: resolvers/Query.productosInactivos.request.vtl
+      ResponseMappingTemplateS3Location: resolvers/Query.productosInactivos.response.vtl
+
+  # Resolver del campo Query.sistemasSubsistemas con plantillas VTL.
+  SistemasSubsistemasResolver:
+    Type: AWS::AppSync::Resolver
+    DependsOn: GraphQLSchema
+    Properties:
+      ApiId: !GetAtt GraphQLApi.ApiId
+      TypeName: Query
+      FieldName: sistemasSubsistemas
+      DataSourceName: !GetAtt LambdaDataSource.Name
+      RequestMappingTemplateS3Location: resolvers/Query.sistemasSubsistemas.request.vtl
+      ResponseMappingTemplateS3Location: resolvers/Query.sistemasSubsistemas.response.vtl
+
 Outputs:
   GraphQLApiId:
     Description: ID de la API AppSync.

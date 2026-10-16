@@ -18,6 +18,25 @@ type Query {
     filter: ProductoFilter
     orderBy: ProductoOrderBy = CODIGO_PRODUCTO_ASC
   ): ProductoConnection!
+
+  """
+  Lista paginada de productos INACTIVOS del ERP Seven.
+  Aplica las mismas reglas de negocio pero filtra solo productos con estado INACTIVO.
+  """
+  productosInactivos(
+    page: Int = 1
+    pageSize: Int = 100
+    filter: ProductoInactivoFilter
+    orderBy: ProductoOrderBy = CODIGO_PRODUCTO_ASC
+  ): ProductoConnection!
+
+  """
+  Lista única (DISTINCT) de sistemas y subsistemas disponibles en el catálogo.
+  Devuelve los grupos y subgrupos sin duplicados, útil para poblar filtros en UI.
+  """
+  sistemasSubsistemas(
+    orderBy: SistemaOrderBy = CODIGO_SISTEMA_ASC
+  ): [SistemaSubsistema!]!
 }
 
 """Producto del catálogo Seven (tablas IN_PRODU / IN_TIPRO / IN_UNIME)."""
@@ -54,6 +73,14 @@ type ProductoConnection {
   pagination: PageInfo!
 }
 
+"""Agrupación de sistema y subsistema (DISTINCT)."""
+type SistemaSubsistema {
+  codigo_sistema: String!
+  nombre_sistema: String!
+  codigo_subsistema: String!
+  nombre_subsistema: String!
+}
+
 """
 Filtros dinámicos opcionales. Se aplican ADEMÁS de las condiciones
 originales del SELECT, nunca las reemplazan. Todos son opcionales.
@@ -65,6 +92,20 @@ input ProductoFilter {
   nombre_producto_contains: String
   codigo_tipo: String
   estado: EstadoProducto
+  codigo_sistema: String
+  codigo_subsistema: String
+  codigo_unidad: String
+  trabajo_repuesto: TrabajoRepuesto
+}
+
+"""
+Filtros para productos inactivos (el estado INACTIVO se aplica automáticamente).
+"""
+input ProductoInactivoFilter {
+  codigo_producto: String
+  codigo_producto_contains: String
+  nombre_producto_contains: String
+  codigo_tipo: String
   codigo_sistema: String
   codigo_subsistema: String
   codigo_unidad: String
@@ -89,4 +130,14 @@ enum ProductoOrderBy {
   NOMBRE_PRODUCTO_DESC
   FECHA_CREACION_ASC
   FECHA_CREACION_DESC
+}
+
+"""Ordenamiento para sistemas y subsistemas."""
+enum SistemaOrderBy {
+  CODIGO_SISTEMA_ASC
+  CODIGO_SISTEMA_DESC
+  NOMBRE_SISTEMA_ASC
+  NOMBRE_SISTEMA_DESC
+  CODIGO_SUBSISTEMA_ASC
+  CODIGO_SUBSISTEMA_DESC
 }

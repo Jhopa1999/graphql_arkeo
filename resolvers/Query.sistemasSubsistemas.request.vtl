@@ -1,0 +1,10 @@
+## Resolver VTL para Query.sistemasSubsistemas (Direct Lambda Resolver)
+## Pasa todos los argumentos GraphQL al handler Lambda
+{
+  "version": "2018-05-29",
+  "operation": "Invoke",
+  "payload": {
+    "field": "sistemasSubsistemas",
+    "arguments": $util.toJson($context.arguments)
+  }
+}

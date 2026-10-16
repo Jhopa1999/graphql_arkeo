@@ -58,9 +58,60 @@ def _resolve_productos(arguments: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
+def _resolve_productos_inactivos(arguments: Dict[str, Any]) -> Dict[str, Any]:
+    """Resuelve la query productosInactivos.
+    
+    Funciona igual que productos pero fuerza el filtro de estado INACTIVO.
+    """
+    page = config.normalize_page(arguments.get("page"))
+    page_size = config.clamp_page_size(arguments.get("pageSize"))
+    filt = arguments.get("filter") or None
+    order_by = arguments.get("orderBy")
+
+    # force_inactive=True aplica automáticamente el filtro de productos inactivos
+    count_sql, count_params = query_builder.build_count_query(filt, force_inactive=True)
+    page_sql, page_params = query_builder.build_page_query(
+        filt, order_by, page, page_size, force_inactive=True
+    )
+
+    total, rows = database.run_paginated(
+        count_sql, count_params, page_sql, page_params
+    )
+
+    total_paginas = (total + page_size - 1) // page_size if page_size else 0
+
+    return {
+        "data": rows,
+        "pagination": {
+            "page": page,
+            "pageSize": page_size,
+            "totalRegistros": total,
+            "totalPaginas": total_paginas,
+            "hasNextPage": page < total_paginas,
+            "hasPreviousPage": page > 1 and total > 0,
+        },
+    }
+
+
+def _resolve_sistemas_subsistemas(arguments: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """Resuelve la query sistemasSubsistemas.
+    
+    Retorna lista DISTINCT de sistemas y subsistemas (sin paginación).
+    Útil para poblar filtros en interfaces de usuario.
+    """
+    order_by = arguments.get("orderBy")
+    
+    sql, params = query_builder.build_sistemas_subsistemas_query(order_by)
+    rows = database.fetch_all(sql, params)
+    
+    return rows
+
+
 # Despachador por campo del esquema (extensible a futuras queries).
 _RESOLVERS = {
     "productos": _resolve_productos,
+    "productosInactivos": _resolve_productos_inactivos,
+    "sistemasSubsistemas": _resolve_sistemas_subsistemas,
 }
 
 

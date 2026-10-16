@@ -68,13 +68,29 @@ _ORDER_BY_MAP = {
 }
 _DEFAULT_ORDER = "CODIGO_PRODUCTO_ASC"
 
+# Mapa de ordenamientos para sistemas/subsistemas
+_SISTEMA_ORDER_BY_MAP = {
+    "CODIGO_SISTEMA_ASC": "PRO_CO01 ASC, PRO_CO02 ASC",
+    "CODIGO_SISTEMA_DESC": "PRO_CO01 DESC, PRO_CO02 ASC",
+    "NOMBRE_SISTEMA_ASC": "PRO_NO01 ASC, PRO_CO01 ASC, PRO_CO02 ASC",
+    "NOMBRE_SISTEMA_DESC": "PRO_NO01 DESC, PRO_CO01 ASC, PRO_CO02 ASC",
+    "CODIGO_SUBSISTEMA_ASC": "PRO_CO02 ASC, PRO_CO01 ASC",
+    "CODIGO_SUBSISTEMA_DESC": "PRO_CO02 DESC, PRO_CO01 ASC",
+}
+_DEFAULT_SISTEMA_ORDER = "CODIGO_SISTEMA_ASC"
+
 
 def _build_dynamic_filters(
-    filt: Optional[Dict[str, Any]]
+    filt: Optional[Dict[str, Any]], force_inactive: bool = False
 ) -> Tuple[str, Dict[str, Any]]:
-    """Traduce el input GraphQL ProductoFilter a cláusulas AND parametrizadas."""
+    """Traduce el input GraphQL ProductoFilter a cláusulas AND parametrizadas.
+    
+    Args:
+        filt: Diccionario de filtros del usuario
+        force_inactive: Si es True, fuerza el filtro de productos INACTIVOS
+    """
     if not filt:
-        return "", {}
+        filt = {}
 
     clauses: List[str] = []
     params: Dict[str, Any] = {}
@@ -82,6 +98,16 @@ def _build_dynamic_filters(
     def add(clause: str, key: str, value: Any) -> None:
         clauses.append(clause)
         params[key] = value
+
+    # Si force_inactive está activado, forzar estado INACTIVO
+    if force_inactive:
+        clauses.append("PRO_ACTI <> 'A'")
+    elif filt.get("estado"):
+        # ACTIVO -> PRO_ACTI = 'A'; INACTIVO -> PRO_ACTI <> 'A'
+        if filt["estado"] == "ACTIVO":
+            clauses.append("PRO_ACTI = 'A'")
+        elif filt["estado"] == "INACTIVO":
+            clauses.append("PRO_ACTI <> 'A'")
 
     if filt.get("codigo_producto"):
         add("PRO_CODI = %(f_codigo_producto)s", "f_codigo_producto", filt["codigo_producto"])
@@ -102,13 +128,6 @@ def _build_dynamic_filters(
 
     if filt.get("codigo_tipo"):
         add("IN_PRODU.TIP_CODI = %(f_codigo_tipo)s", "f_codigo_tipo", filt["codigo_tipo"])
-
-    if filt.get("estado"):
-        # ACTIVO -> PRO_ACTI = 'A'; INACTIVO -> PRO_ACTI <> 'A'
-        if filt["estado"] == "ACTIVO":
-            clauses.append("PRO_ACTI = 'A'")
-        elif filt["estado"] == "INACTIVO":
-            clauses.append("PRO_ACTI <> 'A'")
 
     if filt.get("codigo_sistema"):
         add("PRO_CO01 = %(f_codigo_sistema)s", "f_codigo_sistema", filt["codigo_sistema"])
@@ -133,10 +152,15 @@ def _build_dynamic_filters(
 
 
 def build_count_query(
-    filt: Optional[Dict[str, Any]]
+    filt: Optional[Dict[str, Any]], force_inactive: bool = False
 ) -> Tuple[str, Dict[str, Any]]:
-    """SQL que cuenta el total de registros que cumplen reglas + filtros."""
-    dyn_where, dyn_params = _build_dynamic_filters(filt)
+    """SQL que cuenta el total de registros que cumplen reglas + filtros.
+    
+    Args:
+        filt: Filtros del usuario
+        force_inactive: Si es True, cuenta solo productos INACTIVOS
+    """
+    dyn_where, dyn_params = _build_dynamic_filters(filt, force_inactive)
     sql = f"SELECT COUNT(1) AS total {BASE_FROM}{dyn_where}"
     params = {**BASE_PARAMS, **dyn_params}
     return sql, params
@@ -147,12 +171,20 @@ def build_page_query(
     order_by: Optional[str],
     page: int,
     page_size: int,
+    force_inactive: bool = False,
 ) -> Tuple[str, Dict[str, Any]]:
     """SQL que devuelve una página concreta usando OFFSET/FETCH (paginación real).
 
     OFFSET = (page - 1) * page_size. El motor solo materializa page_size filas.
+    
+    Args:
+        filt: Filtros del usuario
+        order_by: Criterio de ordenamiento
+        page: Número de página (1-based)
+        page_size: Tamaño de página
+        force_inactive: Si es True, filtra solo productos INACTIVOS
     """
-    dyn_where, dyn_params = _build_dynamic_filters(filt)
+    dyn_where, dyn_params = _build_dynamic_filters(filt, force_inactive)
     order_expr = _ORDER_BY_MAP.get(order_by or _DEFAULT_ORDER, _ORDER_BY_MAP[_DEFAULT_ORDER])
     offset = (page - 1) * page_size
 
@@ -167,4 +199,34 @@ def build_page_query(
         "offset": offset,
         "limit": page_size,
     }
+    return sql, params
+
+
+def build_sistemas_subsistemas_query(
+    order_by: Optional[str]
+) -> Tuple[str, Dict[str, Any]]:
+    """SQL que devuelve la lista DISTINCT de sistemas y subsistemas.
+    
+    Retorna grupos únicos (codigo_sistema, nombre_sistema, codigo_subsistema, nombre_subsistema)
+    útil para poblar filtros o catálogos en interfaces de usuario.
+    
+    Args:
+        order_by: Criterio de ordenamiento para sistemas/subsistemas
+    """
+    order_expr = _SISTEMA_ORDER_BY_MAP.get(
+        order_by or _DEFAULT_SISTEMA_ORDER, 
+        _SISTEMA_ORDER_BY_MAP[_DEFAULT_SISTEMA_ORDER]
+    )
+    
+    sql = f"""
+SELECT DISTINCT
+    PRO_CO01 AS codigo_sistema,
+    PRO_NO01 AS nombre_sistema,
+    PRO_CO02 AS codigo_subsistema,
+    PRO_NO02 AS nombre_subsistema
+{BASE_FROM}
+ORDER BY {order_expr}
+"""
+    
+    params = {**BASE_PARAMS}
     return sql, params
