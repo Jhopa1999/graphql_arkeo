@@ -44,6 +44,7 @@ input ProductoInactivoFilter {
 
 ### Ejemplo 1: Listar todos los productos inactivos
 
+**Formato GraphQL:**
 ```graphql
 query {
   productosInactivos(page: 1, pageSize: 50) {
@@ -68,8 +69,20 @@ query {
 }
 ```
 
+**Formato JSON (para Postman/API):**
+```json
+{
+  "query": "query ListarInactivos($page: Int!, $pageSize: Int!) { productosInactivos(page: $page, pageSize: $pageSize) { data { codigo_producto nombre_producto estado codigo_sistema nombre_sistema codigo_subsistema nombre_subsistema fecha_actualizacion } pagination { page pageSize totalRegistros totalPaginas hasNextPage } } }",
+  "variables": {
+    "page": 1,
+    "pageSize": 50
+  }
+}
+```
+
 ### Ejemplo 2: Productos inactivos de tipo TRABAJO
 
+**Formato GraphQL:**
 ```graphql
 query {
   productosInactivos(
@@ -91,8 +104,24 @@ query {
 }
 ```
 
+**Formato JSON (para Postman/API):**
+```json
+{
+  "query": "query InactivosTrabajo($page: Int!, $pageSize: Int!, $filter: ProductoInactivoFilter, $orderBy: ProductoOrderBy) { productosInactivos(page: $page, pageSize: $pageSize, filter: $filter, orderBy: $orderBy) { data { codigo_producto nombre_producto trabajo_repuesto fecha_creacion } pagination { totalRegistros } } }",
+  "variables": {
+    "page": 1,
+    "pageSize": 100,
+    "filter": {
+      "trabajo_repuesto": "TRABAJO"
+    },
+    "orderBy": "FECHA_CREACION_DESC"
+  }
+}
+```
+
 ### Ejemplo 3: Buscar productos inactivos por nombre
 
+**Formato GraphQL:**
 ```graphql
 query {
   productosInactivos(
@@ -108,6 +137,20 @@ query {
     pagination {
       totalRegistros
       totalPaginas
+    }
+  }
+}
+```
+
+**Formato JSON (para Postman/API):**
+```json
+{
+  "query": "query BuscarInactivos($page: Int!, $pageSize: Int!, $filter: ProductoInactivoFilter) { productosInactivos(page: $page, pageSize: $pageSize, filter: $filter) { data { codigo_producto nombre_producto estado } pagination { totalRegistros totalPaginas } } }",
+  "variables": {
+    "page": 1,
+    "pageSize": 25,
+    "filter": {
+      "nombre_producto_contains": "MOTOR"
     }
   }
 }
@@ -161,6 +204,7 @@ enum SistemaOrderBy {
 
 ### Ejemplo 1: Listar todos los sistemas y subsistemas
 
+**Formato GraphQL:**
 ```graphql
 query {
   sistemasSubsistemas {
@@ -172,8 +216,16 @@ query {
 }
 ```
 
+**Formato JSON (para Postman/API):**
+```json
+{
+  "query": "query { sistemasSubsistemas { codigo_sistema nombre_sistema codigo_subsistema nombre_subsistema } }"
+}
+```
+
 ### Ejemplo 2: Ordenar por nombre de sistema
 
+**Formato GraphQL:**
 ```graphql
 query {
   sistemasSubsistemas(orderBy: NOMBRE_SISTEMA_ASC) {
@@ -185,14 +237,32 @@ query {
 }
 ```
 
+**Formato JSON (para Postman/API):**
+```json
+{
+  "query": "query ObtenerGruposYSubgrupos($orderBy: SistemaOrderBy) { sistemasSubsistemas(orderBy: $orderBy) { codigo_sistema nombre_sistema codigo_subsistema nombre_subsistema } }",
+  "variables": {
+    "orderBy": "NOMBRE_SISTEMA_ASC"
+  }
+}
+```
+
 ### Ejemplo 3: Solo códigos (para poblar un filtro)
 
+**Formato GraphQL:**
 ```graphql
 query {
   sistemasSubsistemas {
     codigo_sistema
     codigo_subsistema
   }
+}
+```
+
+**Formato JSON (para Postman/API):**
+```json
+{
+  "query": "query { sistemasSubsistemas { codigo_sistema codigo_subsistema } }"
 }
 ```
 
@@ -239,67 +309,47 @@ query {
 
 ---
 
-## 4. Ejemplos combinados
+## 4. Ejemplos combinados - Formato JSON completo
 
 ### Caso de uso: Interfaz con filtros dinámicos
 
-**Paso 1:** Cargar los sistemas y subsistemas disponibles para poblar filtros
+#### Paso 1: Cargar los sistemas y subsistemas disponibles para poblar filtros
 
-```graphql
-query ObtenerFiltros {
-  sistemasSubsistemas(orderBy: NOMBRE_SISTEMA_ASC) {
-    codigo_sistema
-    nombre_sistema
-    codigo_subsistema
-    nombre_subsistema
+```json
+{
+  "query": "query ObtenerFiltros($orderBy: SistemaOrderBy) { sistemasSubsistemas(orderBy: $orderBy) { codigo_sistema nombre_sistema codigo_subsistema nombre_subsistema } }",
+  "variables": {
+    "orderBy": "NOMBRE_SISTEMA_ASC"
   }
 }
 ```
 
-**Paso 2:** El usuario selecciona un sistema en el filtro y consulta productos
+#### Paso 2: El usuario selecciona un sistema en el filtro y consulta productos
 
-```graphql
-query ProductosDelSistema {
-  productos(
-    page: 1
-    pageSize: 100
-    filter: { 
-      estado: ACTIVO
-      codigo_sistema: "7A001"
-    }
-  ) {
-    data {
-      codigo_producto
-      nombre_producto
-      codigo_subsistema
-      nombre_subsistema
-    }
-    pagination {
-      totalRegistros
-      hasNextPage
+```json
+{
+  "query": "query ProductosDelSistema($page: Int!, $pageSize: Int!, $filter: ProductoFilter) { productos(page: $page, pageSize: $pageSize, filter: $filter) { data { codigo_producto nombre_producto codigo_subsistema nombre_subsistema } pagination { totalRegistros hasNextPage } } }",
+  "variables": {
+    "page": 1,
+    "pageSize": 100,
+    "filter": {
+      "estado": "ACTIVO",
+      "codigo_sistema": "70"
     }
   }
 }
 ```
 
-**Paso 3:** Ver los productos inactivos del mismo sistema
+#### Paso 3: Ver los productos inactivos del mismo sistema
 
-```graphql
-query InactivosDelSistema {
-  productosInactivos(
-    page: 1
-    pageSize: 100
-    filter: { 
-      codigo_sistema: "7A001"
-    }
-  ) {
-    data {
-      codigo_producto
-      nombre_producto
-      fecha_actualizacion
-    }
-    pagination {
-      totalRegistros
+```json
+{
+  "query": "query InactivosDelSistema($page: Int!, $pageSize: Int!, $filter: ProductoInactivoFilter) { productosInactivos(page: $page, pageSize: $pageSize, filter: $filter) { data { codigo_producto nombre_producto fecha_actualizacion } pagination { totalRegistros } } }",
+  "variables": {
+    "page": 1,
+    "pageSize": 100,
+    "filter": {
+      "codigo_sistema": "70"
     }
   }
 }
